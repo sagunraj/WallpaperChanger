@@ -12,7 +12,7 @@ struct HomeView: View {
     
     @ObservedObject var wcViewModel = WallpaperChangerViewModel()
     @State var isAlertShown = false
-    @State var errorMessage = ""
+    @State var alertInfo = (title: "", message: "")
     
     var body: some View {
         ZStack(alignment: Alignment(horizontal: .trailing,
@@ -23,7 +23,11 @@ struct HomeView: View {
                 .transition(.fade(duration: 0.5))
                 .scaledToFit()
             VStack(alignment: .trailing) {
-                Button(action: {}, label: {
+                Button(action: {
+                    wcViewModel.saveAndSetWallpaper(with: wcViewModel.wallpapers[0].fullUrl) { error, isSuccessful in
+                        handleAlert(with: error, and: isSuccessful)
+                    }
+                }, label: {
                     Text("Set as wallpaper")
                 }).background(Color.blue).padding()
                 Spacer()
@@ -41,25 +45,35 @@ struct HomeView: View {
         }
         .frame(minWidth: 800, minHeight: 300)
         .alert(isPresented: $isAlertShown, content: {
-                Alert(title: Text("Error"),
-                      message: Text(errorMessage),
+                Alert(title: Text(alertInfo.title),
+                      message: Text(alertInfo.message),
                       dismissButton: .default(Text("OK")))}
         )
         .onAppear(perform: {
             wcViewModel.fetchWallpaper { error in
-                handleErrorMessageAlert(with: error)
+                handleAlert(with: error)
             }
         })
     }
     
-    func handleErrorMessageAlert(with errorData: Error?) {
+    func handleAlert(with errorData: Error?, and success: Bool = false) {
+        if success {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
+                alertInfo = ("Wallpaper set!", "Cheers! You now have a new wallpaper.")
+                isAlertShown = success
+            }
+        }
         guard let errorData = errorData else {
-            isAlertShown = false
-            errorMessage = ""
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+                alertInfo = ("", "")
+                isAlertShown = false
+            }
             return
         }
-        isAlertShown = true
-        errorMessage = errorData.localizedDescription
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+            alertInfo = ("A problem has occurred", errorData.localizedDescription)
+            isAlertShown = true
+        }
     }
 }
 
